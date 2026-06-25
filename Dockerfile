@@ -24,13 +24,11 @@ RUN uv sync --frozen --no-cache --python 3.12
 ENV PATH="/app/.venv/bin:$PATH"
 
 # --- BƯỚC QUAN TRỌNG: Tải trước các model weights vào cache lúc build để chạy offline hoàn toàn ---
-RUN python -c " \
-from paddleocr import TextDetection, PaddleOCR; \
+RUN python -c "from paddleocr import TextDetection, PaddleOCR; \
 TextDetection(model_name='PP-OCRv6_small_det'); \
 PaddleOCR(use_textline_orientation=True, lang='en', text_detection_model_name='PP-OCRv6_medium_det', text_recognition_model_name='PP-OCRv6_medium_rec'); \
 PaddleOCR(use_textline_orientation=True, lang='en', text_detection_model_name='PP-OCRv6_small_det', text_recognition_model_name='PP-OCRv6_small_rec'); \
-PaddleOCR(use_textline_orientation=True, lang='en', text_detection_model_name='PP-OCRv6_tiny_det', text_recognition_model_name='PP-OCRv6_tiny_rec') \
-"
+PaddleOCR(use_textline_orientation=True, lang='en', text_detection_model_name='PP-OCRv6_tiny_det', text_recognition_model_name='PP-OCRv6_tiny_rec')"
 
 # Copy toàn bộ mã nguồn vào image
 COPY . .
