@@ -20,61 +20,42 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Global dictionary to cache OCR instances
-ocr_instances = {}
-text_det_instances = {}
+# Global cached instances (only using medium tier)
+ocr_instance = None
+text_det_instance = None
 
-def get_ocr_instance(tier: str):
+def get_ocr_instance():
     """
-    Lazily loads and caches the PaddleOCR instance for the requested tier.
+    Lazily loads and caches the PaddleOCR medium instance.
     """
-    if tier not in ocr_instances:
-        print(f"Initializing PaddleOCR PP-OCRv6 {tier} engine...")
-        if tier == "tiny":
-            ocr_instances[tier] = PaddleOCR(
-                use_textline_orientation=True,
-                lang='en',
-                text_detection_model_name="PP-OCRv6_tiny_det",
-                text_recognition_model_name="PP-OCRv6_tiny_rec"
-            )
-        elif tier == "small":
-            ocr_instances[tier] = PaddleOCR(
-                use_textline_orientation=True,
-                lang='en',
-                text_detection_model_name="PP-OCRv6_small_det",
-                text_recognition_model_name="PP-OCRv6_small_rec"
-            )
-        else: # medium / default
-            ocr_instances[tier] = PaddleOCR(
-                use_textline_orientation=True,
-                lang='en',
-                text_detection_model_name="PP-OCRv6_medium_det",
-                text_recognition_model_name="PP-OCRv6_medium_rec"
-            )
-        print(f"PaddleOCR {tier} engine initialized successfully.")
-    return ocr_instances[tier]
+    global ocr_instance
+    if ocr_instance is None:
+        print("Initializing PaddleOCR PP-OCRv6 medium engine...")
+        ocr_instance = PaddleOCR(
+            use_textline_orientation=True,
+            lang='en',
+            text_detection_model_name="PP-OCRv6_medium_det",
+            text_recognition_model_name="PP-OCRv6_medium_rec"
+        )
+        print("PaddleOCR medium engine initialized successfully.")
+    return ocr_instance
 
-def get_text_det_instance(tier: str):
+def get_text_det_instance():
     """
-    Lazily loads and caches the PaddleOCR TextDetection instance for the requested tier.
+    Lazily loads and caches the PaddleOCR TextDetection medium instance.
     """
-    if tier not in text_det_instances:
-        print(f"Initializing PaddleOCR TextDetection PP-OCRv6 {tier} engine...")
-        if tier == "tiny":
-            model_name = "PP-OCRv6_tiny_det"
-        elif tier == "small":
-            model_name = "PP-OCRv6_small_det"
-        else:
-            model_name = "PP-OCRv6_medium_det"
-        text_det_instances[tier] = TextDetection(model_name=model_name)
-        print(f"PaddleOCR TextDetection {tier} engine initialized successfully.")
-    return text_det_instances[tier]
+    global text_det_instance
+    if text_det_instance is None:
+        print("Initializing PaddleOCR TextDetection PP-OCRv6 medium engine...")
+        text_det_instance = TextDetection(model_name="PP-OCRv6_medium_det")
+        print("PaddleOCR TextDetection medium engine initialized successfully.")
+    return text_det_instance
 
-# Eagerly load the default models during startup
+# Eagerly load the models during startup
 @app.on_event("startup")
 def load_default_models():
-    get_ocr_instance("medium")
-    get_text_det_instance("small")
+    get_ocr_instance()
+    get_text_det_instance()
 
 def ocr_to_rows(ocr_results, y_threshold=20):
     """
@@ -123,7 +104,6 @@ def ocr_to_rows(ocr_results, y_threshold=20):
 async def perform_ocr(
     file: UploadFile = File(None),
     test_file: str = Query(None, description="Select a local test file (e.g. '1.jpg', '2.jpg', '3.jpg', '4.jpg') to test without uploading."),
-    tier: str = Query("medium", pattern="^(tiny|small|medium)$", description="PP-OCRv6 model tier to use. 'tiny' (fastest), 'small' (balanced), or 'medium' (most accurate)."),
     max_dim: int = Query(1024, description="Maximum image dimension (width or height) to resize for faster OCR. Set to 0 to keep original size."),
     format: str = Query("raw", pattern="^(raw|table)$", description="Response format. 'raw' for detailed bounding boxes, 'table' for reconstructed table rows."),
     y_threshold: int = Query(20, description="Vertical pixel threshold for grouping text into the same row (only used if format='table').")
@@ -167,8 +147,8 @@ async def perform_ocr(
             
         img_np = np.array(image)
         
-        # Resolve the OCR instance for the requested tier
-        ocr = get_ocr_instance(tier)
+        # Resolve the OCR instance
+        ocr = get_ocr_instance()
         
         # Run PaddleOCR inference
         ocr_result = ocr.predict(img_np)
@@ -197,7 +177,7 @@ async def perform_ocr(
             return {
                 "status": "success",
                 "filename": filename,
-                "tier": tier,
+                "tier": "medium",
                 "format": "table",
                 "dimensions": {"original": [w_orig, h_orig], "processed": list(image.size)},
                 "rows": rows
@@ -206,7 +186,7 @@ async def perform_ocr(
             return {
                 "status": "success",
                 "filename": filename,
-                "tier": tier,
+                "tier": "medium",
                 "format": "raw",
                 "dimensions": {"original": [w_orig, h_orig], "processed": list(image.size)},
                 "results": results
@@ -221,7 +201,6 @@ async def perform_ocr(
 async def perform_detection(
     file: UploadFile = File(None),
     test_file: str = Query(None, description="Select a local test file (e.g. '1.jpg', '2.jpg', '3.jpg', '4.jpg') to test without uploading."),
-    tier: str = Query("small", pattern="^(tiny|small|medium)$", description="PP-OCRv6 model tier to use. 'tiny' (fastest), 'small' (balanced), or 'medium' (most accurate)."),
     max_dim: int = Query(1024, description="Maximum image dimension (width or height) to resize for faster OCR. Set to 0 to keep original size.")
 ):
     import os
@@ -264,7 +243,7 @@ async def perform_detection(
         img_np = np.array(image)
         
         # Load the text detection model
-        model = get_text_det_instance(tier)
+        model = get_text_det_instance()
         output = model.predict(input=img_np, batch_size=1)
         
         results = []
@@ -283,7 +262,7 @@ async def perform_detection(
         return {
             "status": "success",
             "filename": filename,
-            "tier": tier,
+            "tier": "medium",
             "dimensions": {"original": [w_orig, h_orig], "processed": list(image.size)},
             "results": results
         }

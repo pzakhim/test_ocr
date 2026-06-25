@@ -14,9 +14,9 @@ def main():
         print(f"Error: File '{image_path}' not found.")
         sys.exit(1)
 
-    print("Initializing PP-OCRv6 small detection model...")
-    # PP-OCRv6_small_det is the official registered model name in paddlex
-    model = TextDetection(model_name="PP-OCRv6_small_det")
+    print("Initializing PP-OCRv6 medium detection model...")
+    # PP-OCRv6_medium_det is the official registered model name in paddlex
+    model = TextDetection(model_name="PP-OCRv6_medium_det")
     
     print(f"Running text detection on: {image_path}")
     output = model.predict(input=image_path, batch_size=1)
