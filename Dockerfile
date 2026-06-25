@@ -22,6 +22,8 @@ RUN uv sync --frozen --no-cache --python 3.12
 
 # Thêm virtualenv của uv vào biến môi trường PATH
 ENV PATH="/app/.venv/bin:$PATH"
+# Tắt oneDNN để tránh lỗi tương thích PIR trên CPU
+ENV FLAGS_use_onednn=0
 
 # --- BƯỚC QUAN TRỌNG: Tải trước các model weights vào cache lúc build để chạy offline hoàn toàn ---
 RUN python -c "from paddleocr import TextDetection, PaddleOCR; \
