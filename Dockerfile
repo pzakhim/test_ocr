@@ -31,8 +31,8 @@ PaddleOCR(use_textline_orientation=True, lang='en', text_detection_model_name='P
 # Copy toàn bộ mã nguồn vào image
 COPY . .
 
-# Mở port 8000 cho FastAPI Web Service
-EXPOSE 8000
+# Mở port 5901 cho FastAPI Web Service
+EXPOSE 5901
 
 # Khởi chạy FastAPI Web Service mặc định
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "5901"]
