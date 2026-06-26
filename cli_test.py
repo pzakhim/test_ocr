@@ -9,6 +9,7 @@ Usage trong container:
 import sys
 import time
 import numpy as np
+import paddle
 from PIL import Image
 from paddleocr import PaddleOCR
 
@@ -16,9 +17,24 @@ from paddleocr import PaddleOCR
 def main():
     image_path = sys.argv[1] if len(sys.argv) > 1 else "test/1.jpg"
 
+    # --- GPU Detection ---
+    use_gpu = False
+    try:
+        if paddle.is_compiled_with_cuda() and paddle.device.cuda.device_count() > 0:
+            paddle.set_device("gpu:0")
+            use_gpu = True
+            print(f"GPU enabled: {paddle.device.cuda.device_count()} GPU(s) detected → using {paddle.get_device()}")
+        else:
+            paddle.set_device("cpu")
+            print("No GPU detected. Using CPU.")
+    except Exception as e:
+        paddle.set_device("cpu")
+        print(f"GPU detection failed: {e}. Using CPU.")
+
     # --- 1. Load model ---
+    device = "GPU" if use_gpu else "CPU"
     print("=" * 60)
-    print("Loading PaddleOCR PP-OCRv6 medium model...")
+    print(f"Loading PaddleOCR PP-OCRv6 medium model on {device}...")
     t0 = time.time()
 
     ocr = PaddleOCR(
@@ -26,6 +42,7 @@ def main():
         lang="en",
         text_detection_model_name="PP-OCRv6_medium_det",
         text_recognition_model_name="PP-OCRv6_medium_rec",
+        use_gpu=use_gpu,
     )
 
     t_load = time.time()
@@ -71,12 +88,8 @@ def main():
     print("=" * 60)
 
     # --- 5. Device info ---
-    try:
-        import paddle
-        device = paddle.get_device()
-        print(f"Paddle device     : {device}")
-    except Exception:
-        pass
+    print(f"Paddle device     : {paddle.get_device()}")
+    print(f"CUDA available    : {paddle.is_compiled_with_cuda()}")
 
 
 if __name__ == "__main__":

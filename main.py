@@ -3,6 +3,7 @@ import os
 import time
 import logging
 import numpy as np
+import paddle
 from PIL import Image
 from fastapi import FastAPI, UploadFile, File, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,6 +12,20 @@ from paddleocr import PaddleOCR, TextDetection
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
 logger = logging.getLogger(__name__)
+
+# --- GPU Detection & Setup ---
+USE_GPU = False
+try:
+    if paddle.is_compiled_with_cuda() and paddle.device.cuda.device_count() > 0:
+        paddle.set_device("gpu:0")
+        USE_GPU = True
+        logger.info(f"GPU enabled: {paddle.device.cuda.device_count()} GPU(s) detected. Using device: {paddle.get_device()}")
+    else:
+        paddle.set_device("cpu")
+        logger.info("No GPU detected. Falling back to CPU.")
+except Exception as e:
+    paddle.set_device("cpu")
+    logger.warning(f"GPU detection failed: {e}. Falling back to CPU.")
 
 app = FastAPI(
     title="PaddleOCR PP-OCRv6 API",
@@ -34,36 +49,60 @@ text_det_instance = None
 def get_ocr_instance():
     """
     Lazily loads and caches the PaddleOCR medium instance.
+    Automatically uses GPU if available, otherwise CPU.
     """
     global ocr_instance
     if ocr_instance is None:
-        print("Initializing PaddleOCR PP-OCRv6 medium engine...")
-        ocr_instance = PaddleOCR(
-            use_textline_orientation=True,
-            lang='en',
-            text_detection_model_name="PP-OCRv6_medium_det",
-            text_recognition_model_name="PP-OCRv6_medium_rec"
-        )
-        print("PaddleOCR medium engine initialized successfully.")
+        device = "GPU" if USE_GPU else "CPU"
+        logger.info(f"Initializing PaddleOCR PP-OCRv6 medium engine on {device}...")
+        try:
+            ocr_instance = PaddleOCR(
+                use_textline_orientation=True,
+                lang='en',
+                text_detection_model_name="PP-OCRv6_medium_det",
+                text_recognition_model_name="PP-OCRv6_medium_rec",
+                use_gpu=USE_GPU,
+            )
+            logger.info(f"PaddleOCR medium engine initialized successfully on {device}.")
+        except Exception as e:
+            logger.error(f"Failed to initialize PaddleOCR on {device}: {e}")
+            raise
     return ocr_instance
 
 def get_text_det_instance():
     """
     Lazily loads and caches the PaddleOCR TextDetection medium instance.
+    Automatically uses GPU if available, otherwise CPU.
     """
     global text_det_instance
     if text_det_instance is None:
-        print("Initializing PaddleOCR TextDetection PP-OCRv6 medium engine...")
-        text_det_instance = TextDetection(model_name="PP-OCRv6_medium_det")
-        print("PaddleOCR TextDetection medium engine initialized successfully.")
+        device = "GPU" if USE_GPU else "CPU"
+        logger.info(f"Initializing TextDetection PP-OCRv6 medium engine on {device}...")
+        try:
+            text_det_instance = TextDetection(model_name="PP-OCRv6_medium_det")
+            logger.info(f"TextDetection medium engine initialized successfully on {device}.")
+        except Exception as e:
+            logger.error(f"Failed to initialize TextDetection on {device}: {e}")
+            raise
     return text_det_instance
 
 # Eagerly load the models and run warmup inference during startup
 @app.on_event("startup")
 def load_default_models():
-    logger.info("Loading models...")
-    ocr = get_ocr_instance()
-    det = get_text_det_instance()
+    device = "GPU" if USE_GPU else "CPU"
+    logger.info(f"Starting model loading on {device}...")
+
+    try:
+        ocr = get_ocr_instance()
+    except Exception as e:
+        logger.error(f"CRITICAL: Failed to load OCR model: {e}")
+        return
+
+    try:
+        det = get_text_det_instance()
+    except Exception as e:
+        logger.error(f"CRITICAL: Failed to load TextDetection model: {e}")
+        return
 
     # Warmup: chạy inference giả để khởi tạo computation graph + CUDA kernels
     # Giúp loại bỏ cold start hoàn toàn cho request đầu tiên
@@ -73,23 +112,18 @@ def load_default_models():
     try:
         ocr.predict(dummy_img)
         logger.info("OCR warmup complete.")
-    except Exception:
-        logger.info("OCR warmup done (no text in dummy image - expected).")
+    except Exception as e:
+        logger.warning(f"OCR warmup error (may be expected for blank image): {e}")
 
     try:
         list(det.predict(input=dummy_img, batch_size=1))
         logger.info("TextDetection warmup complete.")
-    except Exception:
-        logger.info("TextDetection warmup done (expected).")
+    except Exception as e:
+        logger.warning(f"TextDetection warmup error (may be expected for blank image): {e}")
 
-    # Log device info
-    try:
-        import paddle
-        logger.info(f"Paddle device: {paddle.get_device()}")
-    except Exception:
-        pass
-
-    logger.info("All models loaded and warmed up. Server ready!")
+    logger.info(f"Paddle device  : {paddle.get_device()}")
+    logger.info(f"CUDA available : {paddle.is_compiled_with_cuda()}")
+    logger.info(f"All models loaded and warmed up on {device}. Server ready!")
 
 def ocr_to_rows(ocr_results, y_threshold=20):
     """
