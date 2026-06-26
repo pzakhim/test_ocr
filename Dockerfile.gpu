@@ -10,6 +10,9 @@
 #  Dùng paddlepaddle CPU để download model weights, rồi copy sang stage GPU.)
 FROM python:3.12-slim AS model-downloader
 
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgl1 libglib2.0-0 && rm -rf /var/lib/apt/lists/*
+
 RUN pip install --no-cache-dir \
     paddlepaddle -i https://www.paddlepaddle.org.cn/packages/stable/cpu/ && \
     pip install --no-cache-dir "paddleocr>=3.7.0"
