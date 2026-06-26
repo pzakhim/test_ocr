@@ -1,0 +1,63 @@
+# ===========================================================================
+# Dockerfile.gpu — PaddleOCR PP-OCRv6 với GPU (NVIDIA CUDA 11.8 + cuDNN 8)
+# ===========================================================================
+# Build:  docker build -f Dockerfile.gpu -t ocr-gpu .
+# Run:    docker run --gpus '"device=2"' -p 5901:5901 ocr-gpu
+# ===========================================================================
+
+FROM nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu22.04
+
+# Cài Python 3.12 từ deadsnakes PPA + các thư viện hệ thống cho PaddleOCR/OpenCV
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    software-properties-common \
+    && add-apt-repository ppa:deadsnakes/ppa \
+    && apt-get update && apt-get install -y --no-install-recommends \
+    python3.12 \
+    python3.12-venv \
+    python3.12-dev \
+    libgomp1 \
+    libgl1 \
+    libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Thiết lập Python 3.12 làm mặc định
+RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.12 1 \
+    && update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.12 1
+
+WORKDIR /app
+
+# Tạo virtual environment
+RUN python -m venv .venv
+ENV PATH="/app/.venv/bin:$PATH"
+
+# Nâng cấp pip
+RUN pip install --upgrade pip
+
+# Cài PaddlePaddle GPU (CUDA 11.8) từ index chính thức
+RUN pip install --no-cache-dir paddlepaddle-gpu \
+    -i https://www.paddlepaddle.org.cn/packages/stable/cu118/
+
+# Cài các dependency còn lại
+RUN pip install --no-cache-dir \
+    "paddleocr>=3.7.0" \
+    "fastapi>=0.138.0" \
+    "pillow>=12.2.0" \
+    "python-multipart>=0.0.32" \
+    "uvicorn[standard]>=0.49.0"
+
+# --- BƯỚC QUAN TRỌNG: Tải trước model weights vào cache ---
+# Chạy trên CPU lúc build (không cần GPU), chỉ download weights
+RUN python -c "from paddleocr import TextDetection, PaddleOCR; \
+TextDetection(model_name='PP-OCRv6_medium_det'); \
+PaddleOCR(use_textline_orientation=True, lang='en', \
+text_detection_model_name='PP-OCRv6_medium_det', \
+text_recognition_model_name='PP-OCRv6_medium_rec')"
+
+# Copy toàn bộ mã nguồn vào image
+COPY . .
+
+# Mở port 5901 cho FastAPI Web Service
+EXPOSE 5901
+
+# Khởi chạy FastAPI Web Service (warmup inference sẽ chạy trong startup event)
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "5901"]

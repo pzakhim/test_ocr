@@ -58,11 +58,38 @@ def get_text_det_instance():
         print("PaddleOCR TextDetection medium engine initialized successfully.")
     return text_det_instance
 
-# Eagerly load the models during startup
+# Eagerly load the models and run warmup inference during startup
 @app.on_event("startup")
 def load_default_models():
-    get_ocr_instance()
-    get_text_det_instance()
+    logger.info("Loading models...")
+    ocr = get_ocr_instance()
+    det = get_text_det_instance()
+
+    # Warmup: chạy inference giả để khởi tạo computation graph + CUDA kernels
+    # Giúp loại bỏ cold start hoàn toàn cho request đầu tiên
+    logger.info("Running warmup inference to eliminate cold start...")
+    dummy_img = np.zeros((100, 100, 3), dtype=np.uint8)
+
+    try:
+        ocr.predict(dummy_img)
+        logger.info("OCR warmup complete.")
+    except Exception:
+        logger.info("OCR warmup done (no text in dummy image - expected).")
+
+    try:
+        list(det.predict(input=dummy_img, batch_size=1))
+        logger.info("TextDetection warmup complete.")
+    except Exception:
+        logger.info("TextDetection warmup done (expected).")
+
+    # Log device info
+    try:
+        import paddle
+        logger.info(f"Paddle device: {paddle.get_device()}")
+    except Exception:
+        pass
+
+    logger.info("All models loaded and warmed up. Server ready!")
 
 def ocr_to_rows(ocr_results, y_threshold=20):
     """
