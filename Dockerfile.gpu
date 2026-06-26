@@ -11,6 +11,9 @@ FROM nvidia/cuda:12.2.2-cudnn8-runtime-ubuntu22.04
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=UTC
 
+# Thiết lập đường dẫn thư viện CUDA/cuDNN cho ONNX Runtime và PaddlePaddle
+ENV LD_LIBRARY_PATH="/usr/local/cuda/lib64:/usr/local/cuda/compat:/usr/local/cuda/targets/x86_64-linux/lib:/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH"
+
 # Cài Python 3.12 từ deadsnakes PPA + các thư viện hệ thống cho PaddleOCR/OpenCV
 RUN apt-get update && apt-get install -y --no-install-recommends \
     software-properties-common \
@@ -37,12 +40,13 @@ ENV PATH="/app/.venv/bin:$PATH"
 # Nâng cấp pip
 RUN pip install --upgrade pip
 
-# Cài đặt toàn bộ Python dependencies
-# Chỉ định rõ extra-index-url để pip luôn ưu tiên bản paddlepaddle-gpu (cu120)
+# 1. Cài đặt PaddlePaddle GPU từ index chính thức (CUDA 12.0)
+RUN pip install --no-cache-dir paddlepaddle-gpu \
+    -i https://www.paddlepaddle.org.cn/packages/stable/cu120/
+
+# 2. Cài đặt các dependency còn lại từ PyPI
 # Cố định phiên bản onnxruntime-gpu==1.17.1 tương thích hoàn hảo với CUDA 12.x + cuDNN 8
 RUN pip install --no-cache-dir \
-    --extra-index-url https://www.paddlepaddle.org.cn/packages/stable/cu120/ \
-    paddlepaddle-gpu \
     "onnxruntime-gpu==1.17.1" \
     "paddleocr>=3.7.0" \
     "fastapi>=0.138.0" \
