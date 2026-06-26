@@ -41,10 +41,11 @@ def main():
     t0 = time.time()
 
     ocr = PaddleOCR(
+        engine="onnxruntime",
+        text_detection_model_dir="models/paddle_ocr_v6/det",
+        text_recognition_model_dir="models/paddle_ocr_v6/rec",
         use_textline_orientation=True,
         lang="en",
-        text_detection_model_name="PP-OCRv6_medium_det",
-        text_recognition_model_name="PP-OCRv6_medium_rec",
     )
 
     t_load = time.time()

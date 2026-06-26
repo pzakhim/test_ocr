@@ -57,10 +57,11 @@ def get_ocr_instance():
         logger.info(f"Initializing PaddleOCR PP-OCRv6 medium engine on {device}...")
         try:
             ocr_instance = PaddleOCR(
+                engine="onnxruntime",
+                text_detection_model_dir="models/paddle_ocr_v6/det",
+                text_recognition_model_dir="models/paddle_ocr_v6/rec",
                 use_textline_orientation=True,
                 lang='en',
-                text_detection_model_name="PP-OCRv6_medium_det",
-                text_recognition_model_name="PP-OCRv6_medium_rec",
             )
             logger.info(f"PaddleOCR medium engine initialized successfully on {device}.")
         except Exception as e:
@@ -78,7 +79,10 @@ def get_text_det_instance():
         device = "GPU" if USE_GPU else "CPU"
         logger.info(f"Initializing TextDetection PP-OCRv6 medium engine on {device}...")
         try:
-            text_det_instance = TextDetection(model_name="PP-OCRv6_medium_det")
+            text_det_instance = TextDetection(
+                engine="onnxruntime",
+                text_detection_model_dir="models/paddle_ocr_v6/det",
+            )
             logger.info(f"TextDetection medium engine initialized successfully on {device}.")
         except Exception as e:
             logger.error(f"Failed to initialize TextDetection on {device}: {e}")

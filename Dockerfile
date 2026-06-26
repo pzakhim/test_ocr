@@ -26,11 +26,6 @@ ENV PATH="/app/.venv/bin:$PATH"
 ENV FLAGS_use_mkldnn=0
 ENV PADDLE_PDX_ENABLE_MKLDNN_BYDEFAULT=0
 
-# --- BƯỚC QUAN TRỌNG: Tải trước các model weights vào cache lúc build để chạy offline hoàn toàn ---
-RUN python -c "from paddleocr import TextDetection, PaddleOCR; \
-TextDetection(model_name='PP-OCRv6_medium_det'); \
-PaddleOCR(use_textline_orientation=True, lang='en', text_detection_model_name='PP-OCRv6_medium_det', text_recognition_model_name='PP-OCRv6_medium_rec')"
-
 # Copy toàn bộ mã nguồn vào image
 COPY . .
 

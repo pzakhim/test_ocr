@@ -11,3 +11,6 @@ wheels/
 
 # Generated output files
 output/
+
+# Models (exclude heavy binaries from Git, they are synced directly to Coder)
+models/**/*.onnx
