@@ -37,13 +37,13 @@ ENV PATH="/app/.venv/bin:$PATH"
 # Nâng cấp pip
 RUN pip install --upgrade pip
 
-# Cài PaddlePaddle GPU (CUDA 11.8) từ index chính thức
-RUN pip install --no-cache-dir paddlepaddle-gpu \
-    -i https://www.paddlepaddle.org.cn/packages/stable/cu118/
-
-# Cài các dependency còn lại (bao gồm onnxruntime-gpu cho GPU ONNX inference)
+# Cài đặt toàn bộ Python dependencies
+# Chỉ định rõ extra-index-url để pip luôn ưu tiên bản paddlepaddle-gpu (cu118)
+# Cố định phiên bản onnxruntime-gpu==1.16.3 tương thích hoàn hảo với CUDA 11.8 + cuDNN 8
 RUN pip install --no-cache-dir \
-    "onnxruntime-gpu" \
+    --extra-index-url https://www.paddlepaddle.org.cn/packages/stable/cu118/ \
+    paddlepaddle-gpu \
+    "onnxruntime-gpu==1.16.3" \
     "paddleocr>=3.7.0" \
     "fastapi>=0.138.0" \
     "pillow>=12.2.0" \
