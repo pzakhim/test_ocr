@@ -1,10 +1,16 @@
 import io
 import os
+import time
+import logging
 import numpy as np
 from PIL import Image
 from fastapi import FastAPI, UploadFile, File, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from paddleocr import PaddleOCR, TextDetection
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="PaddleOCR PP-OCRv6 API",
@@ -109,6 +115,7 @@ async def perform_ocr(
     format: str = Query("raw", pattern="^(raw|table)$", description="Response format. 'raw' for detailed bounding boxes, 'table' for reconstructed table rows."),
     y_threshold: int = Query(20, description="Vertical pixel threshold for grouping text into the same row (only used if format='table').")
 ):
+    t_start = time.time()
 
     if test_file is None and file is None:
         raise HTTPException(status_code=400, detail="Either 'file' must be uploaded or 'test_file' parameter must be provided.")
@@ -144,7 +151,8 @@ async def perform_ocr(
             new_w = int(w_orig / scale_factor)
             new_h = int(h_orig / scale_factor)
             image = image.resize((new_w, new_h), Image.Resampling.LANCZOS)
-            
+        
+        t_preprocess = time.time()
         img_np = np.array(image)
         
         # Resolve the OCR instance
@@ -152,6 +160,7 @@ async def perform_ocr(
         
         # Run PaddleOCR inference
         ocr_result = ocr.predict(img_np)
+        t_inference = time.time()
         
         # Format the response
         results = []
@@ -171,6 +180,17 @@ async def perform_ocr(
                     "box": box_cleaned
                 })
         
+        t_total = time.time()
+        processing_time = {
+            "preprocess_ms": round((t_preprocess - t_start) * 1000, 2),
+            "inference_ms": round((t_inference - t_preprocess) * 1000, 2),
+            "postprocess_ms": round((t_total - t_inference) * 1000, 2),
+            "total_ms": round((t_total - t_start) * 1000, 2),
+        }
+        
+        # Log to server terminal
+        logger.info(f"[/ocr] file={filename} | size={w_orig}x{h_orig} | processed={image.size[0]}x{image.size[1]} | texts={len(results)} | {processing_time}")
+        
         # 2. Output Formatting
         if format == "table":
             rows = ocr_to_rows(results, y_threshold=y_threshold)
@@ -180,6 +200,7 @@ async def perform_ocr(
                 "tier": "medium",
                 "format": "table",
                 "dimensions": {"original": [w_orig, h_orig], "processed": list(image.size)},
+                "processing_time_ms": processing_time,
                 "rows": rows
             }
         else:
@@ -189,6 +210,7 @@ async def perform_ocr(
                 "tier": "medium",
                 "format": "raw",
                 "dimensions": {"original": [w_orig, h_orig], "processed": list(image.size)},
+                "processing_time_ms": processing_time,
                 "results": results
             }
             
@@ -203,7 +225,7 @@ async def perform_detection(
     test_file: str = Query(None, description="Select a local test file (e.g. '1.jpg', '2.jpg', '3.jpg', '4.jpg') to test without uploading."),
     max_dim: int = Query(1024, description="Maximum image dimension (width or height) to resize for faster OCR. Set to 0 to keep original size.")
 ):
-    import os
+    t_start = time.time()
     
     if test_file is None and file is None:
         raise HTTPException(status_code=400, detail="Either 'file' must be uploaded or 'test_file' parameter must be provided.")
@@ -239,12 +261,14 @@ async def perform_detection(
             new_w = int(w_orig / scale_factor)
             new_h = int(h_orig / scale_factor)
             image = image.resize((new_w, new_h), Image.Resampling.LANCZOS)
-            
+        
+        t_preprocess = time.time()
         img_np = np.array(image)
         
         # Load the text detection model
         model = get_text_det_instance()
         output = model.predict(input=img_np, batch_size=1)
+        t_inference = time.time()
         
         results = []
         for res in output:
@@ -258,12 +282,24 @@ async def perform_detection(
                     "confidence": float(score),
                     "box": box_cleaned
                 })
+        
+        t_total = time.time()
+        processing_time = {
+            "preprocess_ms": round((t_preprocess - t_start) * 1000, 2),
+            "inference_ms": round((t_inference - t_preprocess) * 1000, 2),
+            "postprocess_ms": round((t_total - t_inference) * 1000, 2),
+            "total_ms": round((t_total - t_start) * 1000, 2),
+        }
+        
+        # Log to server terminal
+        logger.info(f"[/detect] file={filename} | size={w_orig}x{h_orig} | processed={image.size[0]}x{image.size[1]} | regions={len(results)} | {processing_time}")
                 
         return {
             "status": "success",
             "filename": filename,
             "tier": "medium",
             "dimensions": {"original": [w_orig, h_orig], "processed": list(image.size)},
+            "processing_time_ms": processing_time,
             "results": results
         }
             
