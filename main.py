@@ -61,7 +61,6 @@ def get_ocr_instance():
                 lang='en',
                 text_detection_model_name="PP-OCRv6_medium_det",
                 text_recognition_model_name="PP-OCRv6_medium_rec",
-                use_gpu=USE_GPU,
             )
             logger.info(f"PaddleOCR medium engine initialized successfully on {device}.")
         except Exception as e:

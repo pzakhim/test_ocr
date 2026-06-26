@@ -6,6 +6,7 @@ Usage trong container:
     python cli_test.py test/2.jpg         # Chỉ định file cụ thể
     python cli_test.py /path/to/image.jpg # Đường dẫn tùy ý
 """
+
 import sys
 import time
 import numpy as np
@@ -23,7 +24,9 @@ def main():
         if paddle.is_compiled_with_cuda() and paddle.device.cuda.device_count() > 0:
             paddle.set_device("gpu:0")
             use_gpu = True
-            print(f"GPU enabled: {paddle.device.cuda.device_count()} GPU(s) detected → using {paddle.get_device()}")
+            print(
+                f"GPU enabled: {paddle.device.cuda.device_count()} GPU(s) detected → using {paddle.get_device()}"
+            )
         else:
             paddle.set_device("cpu")
             print("No GPU detected. Using CPU.")
@@ -42,7 +45,6 @@ def main():
         lang="en",
         text_detection_model_name="PP-OCRv6_medium_det",
         text_recognition_model_name="PP-OCRv6_medium_rec",
-        use_gpu=use_gpu,
     )
 
     t_load = time.time()
