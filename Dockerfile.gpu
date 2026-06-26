@@ -17,6 +17,8 @@ ENV LD_LIBRARY_PATH="/usr/local/cuda/lib64:/usr/local/cuda/compat:/usr/local/cud
 # Cài Python 3.12 từ deadsnakes PPA + các thư viện hệ thống cho PaddleOCR/OpenCV
 RUN apt-get update && apt-get install -y --no-install-recommends \
     software-properties-common \
+    curl \
+    ca-certificates \
     && add-apt-repository ppa:deadsnakes/ppa \
     && apt-get update && apt-get install -y --no-install-recommends \
     python3.12 \
@@ -56,7 +58,14 @@ RUN pip install --no-cache-dir \
     "python-multipart>=0.0.32" \
     "uvicorn[standard]>=0.49.0"
 
-# Copy toàn bộ mã nguồn (bao gồm cả thư mục models/) vào image
+# 3. Tạo thư mục chứa model và tải trực tiếp từ HuggingFace (để tránh lỗi thiếu file do công cụ đồng bộ bỏ qua file nặng)
+RUN mkdir -p models/paddle_ocr_v6/det models/paddle_ocr_v6/rec && \
+    curl -L https://huggingface.co/PaddlePaddle/PP-OCRv6_medium_det_onnx/resolve/main/inference.onnx -o models/paddle_ocr_v6/det/inference.onnx && \
+    curl -L https://huggingface.co/PaddlePaddle/PP-OCRv6_medium_det_onnx/resolve/main/inference.yml -o models/paddle_ocr_v6/det/inference.yml && \
+    curl -L https://huggingface.co/PaddlePaddle/PP-OCRv6_medium_rec_onnx/resolve/main/inference.onnx -o models/paddle_ocr_v6/rec/inference.onnx && \
+    curl -L https://huggingface.co/PaddlePaddle/PP-OCRv6_medium_rec_onnx/resolve/main/inference.yml -o models/paddle_ocr_v6/rec/inference.yml
+
+# Copy toàn bộ mã nguồn vào image
 COPY . .
 
 # Mở port 5901 cho FastAPI Web Service
