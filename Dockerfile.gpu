@@ -5,7 +5,7 @@
 # Run:    docker run --gpus '"device=2"' -p 5901:5901 ocr-gpu
 # ===========================================================================
 
-FROM nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu22.04
+FROM nvidia/cuda:12.2.2-cudnn8-runtime-ubuntu22.04
 
 # Tránh prompt chọn timezone khi cài package
 ENV DEBIAN_FRONTEND=noninteractive
@@ -38,12 +38,12 @@ ENV PATH="/app/.venv/bin:$PATH"
 RUN pip install --upgrade pip
 
 # Cài đặt toàn bộ Python dependencies
-# Chỉ định rõ extra-index-url để pip luôn ưu tiên bản paddlepaddle-gpu (cu118)
-# Cố định phiên bản onnxruntime-gpu==1.16.3 tương thích hoàn hảo với CUDA 11.8 + cuDNN 8
+# Chỉ định rõ extra-index-url để pip luôn ưu tiên bản paddlepaddle-gpu (cu120)
+# Cố định phiên bản onnxruntime-gpu==1.17.1 tương thích hoàn hảo với CUDA 12.x + cuDNN 8
 RUN pip install --no-cache-dir \
-    --extra-index-url https://www.paddlepaddle.org.cn/packages/stable/cu118/ \
+    --extra-index-url https://www.paddlepaddle.org.cn/packages/stable/cu120/ \
     paddlepaddle-gpu \
-    "onnxruntime-gpu==1.16.3" \
+    "onnxruntime-gpu==1.17.1" \
     "paddleocr>=3.7.0" \
     "fastapi>=0.138.0" \
     "pillow>=12.2.0" \
