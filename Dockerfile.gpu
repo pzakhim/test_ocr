@@ -7,6 +7,10 @@
 
 FROM nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu22.04
 
+# Tránh prompt chọn timezone khi cài package
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=UTC
+
 # Cài Python 3.12 từ deadsnakes PPA + các thư viện hệ thống cho PaddleOCR/OpenCV
 RUN apt-get update && apt-get install -y --no-install-recommends \
     software-properties-common \
