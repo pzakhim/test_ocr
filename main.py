@@ -1,4 +1,5 @@
 import io
+import os
 import numpy as np
 from PIL import Image
 from fastapi import FastAPI, UploadFile, File, HTTPException, Query
@@ -108,15 +109,14 @@ async def perform_ocr(
     format: str = Query("raw", pattern="^(raw|table)$", description="Response format. 'raw' for detailed bounding boxes, 'table' for reconstructed table rows."),
     y_threshold: int = Query(20, description="Vertical pixel threshold for grouping text into the same row (only used if format='table').")
 ):
-    import os
-    
+
     if test_file is None and file is None:
         raise HTTPException(status_code=400, detail="Either 'file' must be uploaded or 'test_file' parameter must be provided.")
     
     try:
         if test_file is not None:
-            # Resolve local test file path
-            test_dir = "/Users/gshmac/Space/CodeSpace/ocr/test"
+            # Resolve local test file path (works in both local dev and Docker)
+            test_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test")
             local_path = os.path.join(test_dir, test_file)
             
             # Prevent directory traversal
@@ -210,8 +210,8 @@ async def perform_detection(
     
     try:
         if test_file is not None:
-            # Resolve local test file path
-            test_dir = "/Users/gshmac/Space/CodeSpace/ocr/test"
+            # Resolve local test file path (works in both local dev and Docker)
+            test_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test")
             local_path = os.path.join(test_dir, test_file)
             
             # Prevent directory traversal
